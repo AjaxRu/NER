@@ -84,7 +84,7 @@ def extract_features(tokens, pos_tags, chunk_tags, i):
 
     return features
 
-#Преобразуем данные в нужный формат для CRF
+#Преобразуем данные в нужный формат для CRF  
 def prepare_data(data):
     sentences = []
     labels = []
@@ -100,25 +100,25 @@ def prepare_data(data):
 
     return sentences, labels
 
-Преобразование всех сплитов в признаки и метки
-X_train, y_train = prepare_data(train_data)
-X_val, y_val = prepare_data(val_data)
-X_test, y_test = prepare_data(test_data)
+Преобразование всех сплитов в признаки и метки  
+X_train, y_train = prepare_data(train_data)  
+X_val, y_val = prepare_data(val_data)  
+X_test, y_test = prepare_data(test_data)  
 
-Функция для преобразования числовых меток в текстовые
+Функция для преобразования числовых меток в текстовые  
 def convert_labels(labels):
     return [[ner_tags[label] for label in sentence] for sentence in labels]
 
-Преобразуем тренировочные, валидационные и тестовые метки из чисел в текстовые представления
-y_train = convert_labels(y_train)
-y_val = convert_labels(y_val)
-y_test = convert_labels(y_test)
+Преобразуем тренировочные, валидационные и тестовые метки из чисел в текстовые представления  
+y_train = convert_labels(y_train)  
+y_val = convert_labels(y_val)  
+y_test = convert_labels(y_test)  
 
-Пример того, как выглядят признаки для одного предложения
-print("Пример признаков для одного токена в предложении:")
-print(X_train[0][0])
+Пример того, как выглядят признаки для одного предложения  
+print("Пример признаков для одного токена в предложении:")  
+print(X_train[0][0])  
 
-Создание и настройка модели CRF
+Создание и настройка модели CRF  
 import sklearn_crfsuite
 from sklearn_crfsuite import metrics
 crf = sklearn_crfsuite.CRF(
@@ -129,82 +129,82 @@ crf = sklearn_crfsuite.CRF(
     all_possible_transitions=True
 )
 
-Обучаем модель на тренировочном наборе
-crf.fit(X_train, y_train)
+Обучаем модель на тренировочном наборе  
+crf.fit(X_train, y_train)  
 
-Предсказания на валидационном наборе
-y_val_pred = crf.predict(X_val)
+Предсказания на валидационном наборе  
+y_val_pred = crf.predict(X_val)  
 
-Оценка на валидационном наборе
-labels = list(crf.classes_)
-labels.remove('O')  # Убираем тег 'O', чтобы он не доминировал в метриках
+Оценка на валидационном наборе  
+labels = list(crf.classes_)  
+labels.remove('O')  # Убираем тег 'O', чтобы он не доминировал в метриках  
 
-Выводим метрики на валидационном наборе
-print("Оценка на валидационном наборе:")
-print(metrics.flat_classification_report(y_val, y_val_pred, labels=labels))
+Выводим метрики на валидационном наборе  
+print("Оценка на валидационном наборе:")  
+print(metrics.flat_classification_report(y_val, y_val_pred, labels=labels))  
 
-Предсказания на тестовом наборе
-y_test_pred = crf.predict(X_test)
+Предсказания на тестовом наборе  
+y_test_pred = crf.predict(X_test)  
 
-Оценка на тестовом наборе
-print("Оценка на тестовом наборе:")
-print(metrics.flat_classification_report(y_test, y_test_pred, labels=labels))
-![image](https://github.com/user-attachments/assets/ebfa0701-f877-49ee-adf2-c98575d12b6d)
+Оценка на тестовом наборе  
+print("Оценка на тестовом наборе:")  
+print(metrics.flat_classification_report(y_test, y_test_pred, labels=labels))  
+![image](https://github.com/user-attachments/assets/ebfa0701-f877-49ee-adf2-c98575d12b6d)  
 
-Основные метрики:
-Precision (точность): Доля правильно предсказанных сущностей среди всех предсказанных как сущности. То есть, насколько "чистыми" являются предсказанные категории (меньше ложных срабатываний).
-Recall (полнота): Доля правильно предсказанных сущностей среди всех фактических сущностей. Это показатель того, сколько реальных сущностей модель смогла "заметить".
-F1-score: Среднее гармоническое между точностью и полнотой. Это общий показатель качества модели, который учитывает как точность, так и полноту.
-Support: Количество истинных примеров каждой категории в наборе данных.
+Основные метрики:  
+Precision (точность): Доля правильно предсказанных сущностей среди всех предсказанных как сущности. То есть, насколько "чистыми" являются предсказанные категории (меньше ложных срабатываний).  
+Recall (полнота): Доля правильно предсказанных сущностей среди всех фактических сущностей. Это показатель того, сколько реальных сущностей модель смогла "заметить".  
+F1-score: Среднее гармоническое между точностью и полнотой. Это общий показатель качества модели, который учитывает как точность, так и полноту.  
+Support: Количество истинных примеров каждой категории в наборе данных.  
 
-Общие выводы:
-На валидационном наборе модель показывает высокие результаты: F1-score = 88%. Это говорит о том, что модель хорошо справляется с задачей на обучающей выборке.
-На тестовом наборе модель немного теряет в качестве (F1 = 80%), что говорит о том, что тестовые данные содержат примеры, которые сложнее для модели.
-Персоны (B-PER и I-PER) распознаются очень хорошо, что типично для таких датасетов, так как имена людей часто более однородны.
-Организации (B-ORG, I-ORG) и локации (B-LOC, I-LOC) также распознаются довольно хорошо, но есть небольшие провалы в полноте на тестовом наборе (особенно для организаций).
-Сущности типа Miscellaneous (B-MISC, I-MISC) сложнее для распознавания, что типично, так как эти сущности более разнообразны.
+Общие выводы:  
+На валидационном наборе модель показывает высокие результаты: F1-score = 88%. Это говорит о том, что модель хорошо справляется с задачей на обучающей выборке.  
+На тестовом наборе модель немного теряет в качестве (F1 = 80%), что говорит о том, что тестовые данные содержат примеры, которые сложнее для модели.  
+Персоны (B-PER и I-PER) распознаются очень хорошо, что типично для таких датасетов, так как имена людей часто более однородны.  
+Организации (B-ORG, I-ORG) и локации (B-LOC, I-LOC) также распознаются довольно хорошо, но есть небольшие провалы в полноте на тестовом наборе (особенно для организаций).  
+Сущности типа Miscellaneous (B-MISC, I-MISC) сложнее для распознавания, что типично, так как эти сущности более разнообразны.  
 
 # Пример использования:
-Пример предложения для предсказания
-example_sentence = ["John", "Smith", "is", "from", "New", "York", "and", "works", "at", "Google", "."]
+Пример предложения для предсказания  
+example_sentence = ["John", "Smith", "is", "from", "New", "York", "and", "works", "at", "Google", "."]  
 
-POS-теги и chunk-теги для примера (можно взять случайные для демонстрации)
-В реальных случаях это должны быть теги, предсказанные другой моделью или подготовленные вручную
-example_pos_tags = [22, 22, 42, 35, 16, 16, 35, 42, 35, 16, 7]  # Это пример
-example_chunk_tags = [11, 11, 21, 21, 11, 12, 21, 22, 21, 11, 0]  # Это пример
+POS-теги и chunk-теги для примера (можно взять случайные для демонстрации)  
+В реальных случаях это должны быть теги, предсказанные другой моделью или подготовленные вручную  
+example_pos_tags = [22, 22, 42, 35, 16, 16, 35, 42, 35, 16, 7]  # Это пример  
+example_chunk_tags = [11, 11, 21, 21, 11, 12, 21, 22, 21, 11, 0]  # Это пример  
 
-Преобразуем предложение в признаки для CRF
-example_features = [extract_features(example_sentence, example_pos_tags, example_chunk_tags, i) for i in range(len(example_sentence))]
+Преобразуем предложение в признаки для CRF  
+example_features = [extract_features(example_sentence, example_pos_tags, example_chunk_tags, i) for i in range(len(example_sentence))]  
 
-Делаем предсказание
-predicted_labels = crf.predict([example_features])[0]  # Модель предсказывает текстовые метки (например, B-PER, O и т.д.)
+Делаем предсказание  
+predicted_labels = crf.predict([example_features])[0]  # Модель предсказывает текстовые метки (например, B-PER, O и т.д.)  
 
-Выводим результаты
+Выводим результаты  
 for token, label in zip(example_sentence, predicted_labels):
     print(f"{token}: {label}")
 
-![image](https://github.com/user-attachments/assets/1d357459-c6c2-4b80-8765-09b50a399615)
+![image](https://github.com/user-attachments/assets/1d357459-c6c2-4b80-8765-09b50a399615)  
 
 
 # Разбор построения BERT
-Подготавливаем данные
-!pip install transformers datasets
-rom datasets import load_dataset
-dataset = load_dataset("conll2003")
-train_data = dataset['train']
-val_data = dataset['validation']
-test_data = dataset['test']
-print(train_data[0])
+Подготавливаем данные  
+!pip install transformers datasets  
+rom datasets import load_dataset  
+dataset = load_dataset("conll2003")  
+train_data = dataset['train']  
+val_data = dataset['validation']  
+test_data = dataset['test']  
+print(train_data[0])  
 
-BERT требует специальной токенизации, которая учитывает подслова (subword tokenization).
-Нам нужно будет токенизировать предложения с помощью токенизатора BERT, а затем адаптировать разметку сущностей к новой токенизации.
+BERT требует специальной токенизации, которая учитывает подслова (subword tokenization).  
+Нам нужно будет токенизировать предложения с помощью токенизатора BERT, а затем адаптировать разметку сущностей к новой токенизации.  
 
-from transformers import BertTokenizerFast
+from transformers import BertTokenizerFast  
 
-Загрузка предобученного токенизатора BERT
-tokenizer = BertTokenizerFast.from_pretrained('bert-base-cased')
+Загрузка предобученного токенизатора BERT  
+tokenizer = BertTokenizerFast.from_pretrained('bert-base-cased')  
 
-Функция для токенизации текста и адаптации меток NER
+Функция для токенизации текста и адаптации меток NER  
 def tokenize_and_align_labels(examples):
     # Добавляем padding и truncation
     tokenized_inputs = tokenizer(
@@ -233,18 +233,18 @@ def tokenize_and_align_labels(examples):
     tokenized_inputs["labels"] = labels
     return tokenized_inputs
 
-Токенизация и выравнивание меток для всех сплитов
-tokenized_train = train_data.map(tokenize_and_align_labels, batched=True)
-tokenized_val = val_data.map(tokenize_and_align_labels, batched=True)
-tokenized_test = test_data.map(tokenize_and_align_labels, batched=True)
+Токенизация и выравнивание меток для всех сплитов  
+tokenized_train = train_data.map(tokenize_and_align_labels, batched=True)  
+tokenized_val = val_data.map(tokenize_and_align_labels, batched=True)  
+tokenized_test = test_data.map(tokenize_and_align_labels, batched=True)  
 
-Теперь построим модель
-from transformers import BertForTokenClassification, TrainingArguments, Trainer
+Теперь построим модель  
+from transformers import BertForTokenClassification, TrainingArguments, Trainer  
 
-Загрузка модели BERT
-model = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(dataset['train'].features['ner_tags'].feature.names))
+Загрузка модели BERT  
+model = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(dataset['train'].features['ner_tags'].feature.names))  
 
-Установка параметров обучения
+Установка параметров обучения  
 training_args = TrainingArguments(
     output_dir="./results",
     evaluation_strategy="epoch",
@@ -260,7 +260,7 @@ training_args = TrainingArguments(
     fp16=True  # Использование 16-битных вычислений для ускорения
 )
 
-Создание Trainer
+Создание Trainer  
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -269,29 +269,28 @@ trainer = Trainer(
     tokenizer=tokenizer,  # Указываем токенизатор
 )
 
-Обучение модели
-trainer.train()
-![image](https://github.com/user-attachments/assets/887508b4-6374-4553-8f72-b67143520740)
-Снижение Loss на валидации говорит о том, что модель не переобучается и продолжает хорошо обобщать на новых данных.
-Что за loss используется в BERT для NER?
-В модели BERT для NER используется функция потерь, известная как кросс-энтропия с маскированием (CrossEntropyLoss), специально предназначенная для задач классификации токенов (Token Classification), таких как NER.
+Обучение модели  
+trainer.train()  
+![image](https://github.com/user-attachments/assets/887508b4-6374-4553-8f72-b67143520740)  
+Снижение Loss на валидации говорит о том, что модель не переобучается и продолжает хорошо обобщать на новых данных.  
+Что за loss используется в BERT для NER? В модели BERT для NER используется функция потерь, известная как кросс-энтропия с маскированием (CrossEntropyLoss), специально предназначенная для задач классификации токенов (Token Classification), таких как NER.  
 
 Кросс-энтропия: Эта функция измеряет разницу между предсказанным распределением классов (в данном случае метки именованных сущностей) и истинным распределением.
   Для каждой позиции (токена) она вычисляет вероятность принадлежности токена к каждому классу (например, B-PER, I-ORG, O и т.д.)
-  и штрафует модель за неправильные предсказания.
+  и штрафует модель за неправильные предсказания.  
 Маскирование: Когда мы используем BERT, некоторые токены (подслова или специальные токены, такие как [PAD] и [CLS])
   не должны влиять на вычисление потерь. Поэтому для таких токенов используется специальная маска (значение -100), чтобы
-  они не участвовали в подсчете потерь.
+  они не участвовали в подсчете потерь.  
 
-Теперь перейдем к использованию обученной модели для предсказания именованных сущностей в произвольном предложении.
+Теперь перейдем к использованию обученной модели для предсказания именованных сущностей в произвольном предложении.  
 
-import torch
+import torch  
 
-Проверяем, доступен ли GPU
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+Проверяем, доступен ли GPU  
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
 
-Перемещаем модель на устройство
-model.to(device)
+Перемещаем модель на устройство  
+model.to(device)  
 
 def predict_ner_for_sentence(sentence):
     # Токенизация предложения
@@ -315,7 +314,7 @@ def predict_ner_for_sentence(sentence):
         print(f"{token}: {label}")
 
 # Пример использования
-sentence = "John Smith works at Google in New York"
-predict_ner_for_sentence(sentence)
-![image](https://github.com/user-attachments/assets/602cb211-8b00-4724-b4ba-8c9f252bef31)
+sentence = "John Smith works at Google in New York"  
+predict_ner_for_sentence(sentence)  
+![image](https://github.com/user-attachments/assets/602cb211-8b00-4724-b4ba-8c9f252bef31)  
 
