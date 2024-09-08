@@ -3,11 +3,11 @@
 
 
 # Разбор построения CRF 
-\```
+```
 !pip install datasets  
 from datasets import load_dataset  
 dataset = load_dataset("conll2003")  
-\```
+```
 
 Изучение структуры датасета  
 Выводим доступные сплиты данных (train, validation, test)  
