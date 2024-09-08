@@ -96,7 +96,7 @@ def extract_features(tokens, pos_tags, chunk_tags, i):
     return features
 ```
 
-#Преобразуем данные в нужный формат для CRF  
+Преобразуем данные в нужный формат для CRF  
 ```
 def prepare_data(data):
     sentences = []
