@@ -164,7 +164,7 @@ Support: Количество истинных примеров каждой к�
 Организации (B-ORG, I-ORG) и локации (B-LOC, I-LOC) также распознаются довольно хорошо, но есть небольшие провалы в полноте на тестовом наборе (особенно для организаций).
 Сущности типа Miscellaneous (B-MISC, I-MISC) сложнее для распознавания, что типично, так как эти сущности более разнообразны.
 
-Проверим работу модели на примере:
+# Пример использования:
 Пример предложения для предсказания
 example_sentence = ["John", "Smith", "is", "from", "New", "York", "and", "works", "at", "Google", "."]
 
@@ -184,4 +184,138 @@ for token, label in zip(example_sentence, predicted_labels):
     print(f"{token}: {label}")
 
 ![image](https://github.com/user-attachments/assets/1d357459-c6c2-4b80-8765-09b50a399615)
+
+
+# Разбор построения BERT
+Подготавливаем данные
+!pip install transformers datasets
+rom datasets import load_dataset
+dataset = load_dataset("conll2003")
+train_data = dataset['train']
+val_data = dataset['validation']
+test_data = dataset['test']
+print(train_data[0])
+
+BERT требует специальной токенизации, которая учитывает подслова (subword tokenization).
+Нам нужно будет токенизировать предложения с помощью токенизатора BERT, а затем адаптировать разметку сущностей к новой токенизации.
+
+from transformers import BertTokenizerFast
+
+Загрузка предобученного токенизатора BERT
+tokenizer = BertTokenizerFast.from_pretrained('bert-base-cased')
+
+Функция для токенизации текста и адаптации меток NER
+def tokenize_and_align_labels(examples):
+    # Добавляем padding и truncation
+    tokenized_inputs = tokenizer(
+        examples['tokens'],
+        truncation=True,
+        is_split_into_words=True,
+        padding='max_length',  # Добавляем padding до максимальной длины
+        max_length=128  # Максимальная длина последовательности (можно варьировать)
+    )
+
+    labels = []
+    for i, label in enumerate(examples['ner_tags']):
+        word_ids = tokenized_inputs.word_ids(batch_index=i)  # Получаем индексы слов после токенизации
+        previous_word_idx = None
+        label_ids = []
+        for word_idx in word_ids:
+            if word_idx is None:  # Пропускаем спецсимволы
+                label_ids.append(-100)
+            elif word_idx != previous_word_idx:  # Новое слово
+                label_ids.append(label[word_idx])
+            else:  # Подслова
+                label_ids.append(-100)  # Для подслов добавляем -100, чтобы их игнорировать при обучении
+            previous_word_idx = word_idx
+        labels.append(label_ids)
+
+    tokenized_inputs["labels"] = labels
+    return tokenized_inputs
+
+Токенизация и выравнивание меток для всех сплитов
+tokenized_train = train_data.map(tokenize_and_align_labels, batched=True)
+tokenized_val = val_data.map(tokenize_and_align_labels, batched=True)
+tokenized_test = test_data.map(tokenize_and_align_labels, batched=True)
+
+Теперь построим модель
+from transformers import BertForTokenClassification, TrainingArguments, Trainer
+
+Загрузка модели BERT
+model = BertForTokenClassification.from_pretrained('bert-base-cased', num_labels=len(dataset['train'].features['ner_tags'].feature.names))
+
+Установка параметров обучения
+training_args = TrainingArguments(
+    output_dir="./results",
+    evaluation_strategy="epoch",
+    learning_rate=2e-5,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=3,
+    weight_decay=0.01,
+    logging_dir='./logs',
+    logging_steps=10,
+    # Добавляем padding и truncation
+    gradient_accumulation_steps=2,  # Для более стабильного обучения
+    fp16=True  # Использование 16-битных вычислений для ускорения
+)
+
+Создание Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_train,
+    eval_dataset=tokenized_val,
+    tokenizer=tokenizer,  # Указываем токенизатор
+)
+
+Обучение модели
+trainer.train()
+![image](https://github.com/user-attachments/assets/887508b4-6374-4553-8f72-b67143520740)
+Снижение Loss на валидации говорит о том, что модель не переобучается и продолжает хорошо обобщать на новых данных.
+Что за loss используется в BERT для NER?
+В модели BERT для NER используется функция потерь, известная как кросс-энтропия с маскированием (CrossEntropyLoss), специально предназначенная для задач классификации токенов (Token Classification), таких как NER.
+
+Кросс-энтропия: Эта функция измеряет разницу между предсказанным распределением классов (в данном случае метки именованных сущностей) и истинным распределением.
+  Для каждой позиции (токена) она вычисляет вероятность принадлежности токена к каждому классу (например, B-PER, I-ORG, O и т.д.)
+  и штрафует модель за неправильные предсказания.
+Маскирование: Когда мы используем BERT, некоторые токены (подслова или специальные токены, такие как [PAD] и [CLS])
+  не должны влиять на вычисление потерь. Поэтому для таких токенов используется специальная маска (значение -100), чтобы
+  они не участвовали в подсчете потерь.
+
+Теперь перейдем к использованию обученной модели для предсказания именованных сущностей в произвольном предложении.
+
+import torch
+
+Проверяем, доступен ли GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+Перемещаем модель на устройство
+model.to(device)
+
+def predict_ner_for_sentence(sentence):
+    # Токенизация предложения
+    inputs = tokenizer(sentence, return_tensors="pt", truncation=True, padding=True, is_split_into_words=False)
+
+    # Перемещаем входные данные на устройство (то же, что и модель)
+    inputs = {key: value.to(device) for key, value in inputs.items()}
+
+    # Модель BERT делает предсказание для токенов
+    outputs = model(**inputs)
+
+    # Получаем предсказания (логиты) и преобразуем их в метки
+    predictions = outputs.logits.argmax(dim=-1).squeeze().tolist()
+
+    # Преобразуем токены и их предсказанные метки обратно в человекочитаемый формат
+    tokens = tokenizer.convert_ids_to_tokens(inputs['input_ids'].squeeze().tolist())
+    predicted_labels = [dataset['train'].features['ner_tags'].feature.names[pred] for pred in predictions]
+
+    # Выводим токены вместе с предсказанными метками
+    for token, label in zip(tokens, predicted_labels):
+        print(f"{token}: {label}")
+
+# Пример использования
+sentence = "John Smith works at Google in New York"
+predict_ner_for_sentence(sentence)
+![image](https://github.com/user-attachments/assets/602cb211-8b00-4724-b4ba-8c9f252bef31)
 
